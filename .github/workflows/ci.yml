@@ -1,0 +1,65 @@
+name: Continuous Integration
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  #
+  # CI with Default Configuration
+  #
+  # This simply runs `cargo build && cargo test` on all sources. We want to
+  # explicitly ensure that `r-efi-utils` stays compatible to the stable channel
+  # and the standard build setup.
+  #
+  ci:
+    name: CI with Default Configuration
+    runs-on: ubuntu-latest
+    steps:
+    - name: Fetch Sources
+      uses: actions/checkout@v2
+    - name: Build Project
+      run: cargo build --verbose --all-targets
+    - name: Run Tests
+      run: cargo test --verbose
+
+  #
+  # Cross-Compilation to UEFI Target
+  #
+  # This cross-compiles all sources (including the examples) for native UEFI
+  # targets. This test ensures that we can actually compile for our main target
+  # platforms.
+  #
+  crossuefi:
+    name: Cross-Compilation To UEFI Targets (nightly)
+    runs-on: ubuntu-latest
+    steps:
+    - name: Fetch Sources
+      uses: actions/checkout@v2
+    - name: Install Rust Components
+      run: |
+        rustup toolchain install nightly
+        rustup default nightly
+        rustup target add x86_64-unknown-uefi i686-unknown-uefi aarch64-unknown-uefi
+    - name: Build Project
+      run: |
+        cargo +nightly build --target x86_64-unknown-uefi --lib --bins --examples
+        cargo +nightly build --target i686-unknown-uefi --lib --bins --examples
+        cargo +nightly build --target aarch64-unknown-uefi --lib --bins --examples
+
+  #
+  # Check Rust Formatting
+  #
+  # Make sure any code-changes conform to the rust coding-style guidelines. We
+  # run `rustfmt` on the entire codebase and complain on any errors.
+  #
+  rustfmt:
+    name: Check Rust Formatting
+    runs-on: ubuntu-latest
+    steps:
+    - name: Fetch Sources
+      uses: actions/checkout@v2
+    - name: Install Rust Components
+      run: rustup component add rustfmt
+    - name: Verify Code Formatting
+      run: cargo fmt --all -- --check
